@@ -300,11 +300,12 @@ function on_input(self, action_id, action)
 				for co,v in pairs(cobjs) do
 					-- print( 'co=',co,v,v.back_id )
 					local pos = go.get_position( co )
+					local scl = go.get_scale( co )
 					local sz  = go.get( v.back_url, 'size' )
-					local x0 = pos.x - sz.x/2
-					local x1 = pos.x + sz.x/2
-					local y0 = pos.y - sz.y/2
-					local y1 = pos.y + sz.y/2
+					local x0 = pos.x - sz.x*scl.x/2
+					local x1 = pos.x + sz.x*scl.x/2
+					local y0 = pos.y - sz.y*scl.y/2
+					local y1 = pos.y + sz.y*scl.y/2
 					if( (tx>=x0) and (tx<=x1) and (ty>=y0) and (ty<=y1) ) then
 						found_obj = co
 						found_scr = v.script_url

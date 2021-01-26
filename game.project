@@ -13,5 +13,8 @@ input_method = HiddenInputField
 
 [project]
 title = Memory Game
-version = 20210125.1
+version = 20210126.2
+
+[sprite]
+max_count = 256
 
