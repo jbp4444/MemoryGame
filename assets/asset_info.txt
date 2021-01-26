@@ -1,0 +1,17 @@
+Notes on the assets/images:
+
+* https://kenney.nl for images and audio
+  * see LICENSE.txt file in kenney.nl subdirectory for more info on licensing
+
+* https://flaticons.net for the home and help symbols
+  * icon is 64px inside a 128px box
+  * rounded-rectangle box with middle-weight line (3rd selection from left)
+  * icon color is 0040ff (cerulean); box/border color is 000000 (black)
+
+* text images from https://www.clickminded.com/button-generator/ (a.k.a. Da Button Factory)
+  * most use font=Open Sans, 24pt, white
+  * title uses font=Overlock, 48pt, white
+  * fixed size for most boxes is 250x50 ... with 4pt border
+  * title is 400x100 with 4 pt border
+  * colors are all picked from the palette-grid (not hex codes)
+

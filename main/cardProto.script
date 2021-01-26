@@ -1,0 +1,173 @@
+
+local cardinfo = require( 'main.cardInfo' )
+
+go.property( 'parent', msg.url() )
+go.property( 'card_back', -1 )
+go.property( 'card_front', -1 )
+go.property( 'card_face', -1 )
+
+-- states: 0=back, 1=front, 2=icon
+go.property( 'state', -1 )
+-- ready: is the card ready, or is it in an animation?
+go.property( 'ready', false )
+
+function show_back( self )
+	msg.post( '#face', 'disable' )
+	msg.post( '#front', 'disable' )
+	msg.post( '#back', 'enable' )
+end
+function show_front( self )
+	msg.post( '#face', 'enable' )
+	msg.post( '#front', 'enable' )
+	msg.post( '#back', 'disable' )
+end
+
+function init(self)
+	-- what card-face (animal)?
+	if( self.card_front < 0 ) then
+		self.card_front = cardinfo.cardFronts[ math.random(1,#cardinfo.cardFronts) ]
+	else 
+		self.card_front = cardinfo.cardFronts[ self.card_front ]
+	end
+	if( self.card_back < 0 ) then
+		self.card_back = cardinfo.cardBacks[ math.random(1,#cardinfo.cardBacks) ]
+	else 
+		self.card_back = cardinfo.cardBacks[ self.card_back ]
+	end
+	if( self.card_face < 0 ) then
+		self.card_face = cardinfo.cardFaces[ math.random(1,#cardinfo.cardFaces) ]
+	else 
+		self.card_face = cardinfo.cardFaces[ self.card_face ]
+	end
+	
+	-- set up card-back, -front, and -face (animal)
+	msg.post( '#back',  'play_animation', {id=hash(self.card_back)} )
+	msg.post( '#front', 'play_animation', {id=hash(self.card_front)} )
+	msg.post( '#face',  'play_animation', {id=hash(self.card_face)} )
+
+	self.state = 0
+	show_back()
+
+	self.orig_scale = go.get_scale()
+	
+	-- send msg back to controller that we're ready
+	-- -- and include references to components
+	print( 'id=',go.get_id(),'url=',msg.url() )
+	local props = {
+		id = go.get_id(),
+		script_url = msg.url(),
+		back_id   = go.get_id( '#back' ),
+		front_id  = go.get_id( '#front' ),
+		back_url  = msg.url( '#back' ),
+		front_url = msg.url( '#front' ),
+	}
+
+	self.ready = true
+	msg.post( '/gamecontroller', 'check_in', props )
+end
+
+-- function final(self)
+-- end
+
+-- function update(self, dt)
+-- end
+
+function flip_phase3( self )
+	go.set( '.', 'scale', self.orig_scale )
+	print( 'flip anim is done' )
+	if( self.state == 1 ) then
+		self.state = 0
+	elseif( self.state == 0 ) then
+		self.state = 1
+	end
+	self.ready = true
+end
+function flip_phase2( self )
+	go.set( '.', 'scale.x', 0.0 )
+	go.set( '.', 'scale.y', self.orig_scale.y )
+	if( self.state == 1 ) then
+		show_back()
+	else
+		show_front()
+	end
+	local newscl = vmath.vector3( self.orig_scale.x,self.orig_scale.y, 1.0 )
+	go.animate( '.', 'scale', go.PLAYBACK_ONCE_FORWARD, newscl, go.EASING_LINEAR, 0.15, 0, flip_phase3 )
+end
+
+function on_message(self, message_id, message, sender)
+	if( message_id == hash('send_touch') ) then
+		-- this card was touched ... send back the needed data
+		local msg_data = {
+			state = self.state,
+			card_face = self.card_face,
+		}
+		msg.post( self.parent, 'card_touch', msg_data )
+	elseif( message_id == hash('flip') ) then
+		if( (self.state==0) or (self.state==1) ) then
+			self.ready = false
+			local newscl = vmath.vector3( 0.0, 1.05*self.orig_scale.y, 1.0 )
+			go.animate( '.', 'scale', go.PLAYBACK_ONCE_FORWARD, newscl, go.EASING_LINEAR, 0.15, 0, flip_phase2 )
+		end
+	elseif( message_id == hash('change_face') ) then
+		self.card_face = math.random(1,#cardFaces)
+		msg.post( '#face',  'play_animation', {id=hash(cardFaces[self.card_face])} )
+	elseif( message_id == hash('show_back') ) then
+		msg.post( '#face', 'disable' )
+		msg.post( '#front', 'disable' )
+		msg.post( '#back', 'enable' )
+	elseif( message_id == hash('show_front') ) then
+		msg.post( '#face', 'enable' )
+		msg.post( '#front', 'enable' )
+		msg.post( '#back', 'disable' )
+	elseif( message_id == hash('iconify') ) then
+		-- TODO: need to send coords of where to iconify to
+		msg.post( '#face', 'enable' )
+		msg.post( '#front', 'enable' )
+		msg.post( '#back', 'disable' )
+
+		local newpos = message.pos
+		local newscl = vmath.vector3( 0.25,0.25, 0.7 )
+		self.ready = false
+		particlefx.play( '#cardSlide' )
+		go.animate( '.', 'position', go.PLAYBACK_ONCE_FORWARD, newpos, go.EASING_LINEAR, 0.50 )
+		go.animate( '.', 'scale', go.PLAYBACK_ONCE_FORWARD, newscl, go.EASING_LINEAR, 0.50 )
+
+		self.state = 2
+	end
+end
+
+-- apparently can't have more than 16 input-listeners
+-- so we'll have to handle input elsewhere
+function x_on_input( self, action_id, action )
+	local rtn = false
+	if( action_id ~= nil ) then
+		if( action_id == hash('touch') ) then
+			-- print( 'touch', action.pressed, action.released )
+			if( action.pressed ) then
+				-- where did the player touch?
+				local tx = action.x
+				local ty = action.y
+
+				-- what are the bounds of this card?
+				local pos = go.get_position()
+				local sz  = go.get( '#back', 'size' )
+				local x0 = pos.x - sz.x/2
+				local x1 = pos.x + sz.x/2
+				local y0 = pos.y - sz.y/2
+				local y1 = pos.y + sz.y/2
+
+				if( (tx>=x0) and (tx<=x1) and (ty>=y0) and (ty<=y1) ) then
+					-- this card was touched!
+					local msg_data = {
+						showing = self.showing,
+						card_face = self.card_face,
+					}
+					msg.post( self.parent, 'card_touch', msg_data )
+					rtn = true
+				end
+			end
+		end
+	end
+	return rtn
+end
+

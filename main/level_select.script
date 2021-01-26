@@ -1,0 +1,139 @@
+
+function set_player_buttons( num )
+	if( num == 1 ) then
+		msg.post( 'player1select#spriteOn',  'enable' )
+		msg.post( 'player1select#spriteOff', 'disable' )
+		msg.post( 'player2select#spriteOn',  'disable' )
+		msg.post( 'player2select#spriteOff', 'enable' )
+	elseif( num == 2 ) then
+		msg.post( 'player1select#spriteOn',  'disable' )
+		msg.post( 'player1select#spriteOff', 'enable' )
+		msg.post( 'player2select#spriteOn',  'enable' )
+		msg.post( 'player2select#spriteOff', 'disable' )
+	else
+		msg.post( 'player1select#spriteOn',  'disable' )
+		msg.post( 'player1select#spriteOff', 'disable' )
+		msg.post( 'player2select#spriteOn',  'disable' )
+		msg.post( 'player2select#spriteOff', 'disable' )
+	end
+end
+
+function init(self)
+	msg.post( '.', 'acquire_input_focus' )
+
+	self.buttons = {}
+	for i,val in ipairs({'level1#sprite','level2#sprite','level3#sprite'}) do
+		local pos = go.get_position(val)
+		local sz  = go.get( val, 'size' )
+		local bounds = {
+			x0 = pos.x - sz.x/2,
+			x1 = pos.x + sz.x/2,
+			y0 = pos.y - sz.y/2,
+			y1 = pos.y + sz.y/2,
+		}
+		table.insert( self.buttons, bounds )
+	end
+
+	self.np_buttons = {}
+	for i,val in ipairs({'player1select#spriteOn','player2select#spriteOn'}) do
+		local pos = go.get_position(val)
+		local sz  = go.get( val, 'size' )
+		local bounds = {
+			x0 = pos.x - sz.x/2,
+			x1 = pos.x + sz.x/2,
+			y0 = pos.y - sz.y/2,
+			y1 = pos.y + sz.y/2,
+		}
+		table.insert( self.np_buttons, bounds )
+	end
+	
+	self.link_buttons = {}
+	for i,val in ipairs({'logobtn#sprite','helpbtn#sprite','homebtn#sprite'}) do
+		local pos = go.get_position(val)
+		local sz  = go.get( val, 'size' )
+		local bounds = {
+			x0 = pos.x - sz.x/2,
+			x1 = pos.x + sz.x/2,
+			y0 = pos.y - sz.y/2,
+			y1 = pos.y + sz.y/2,
+		}
+		table.insert( self.link_buttons, bounds )
+	end
+	
+	self.num_players = 2
+	set_player_buttons( 2 )
+
+	self.ready = true
+end
+
+function on_message( self, message_id, message, sender )
+	-- Add message-handling code here
+	if( message_id == hash('game_over') ) then
+		print( 'recv game_over message' )
+		msg.post( 'title#sprite', 'enable' )
+		msg.post( 'level1#sprite', 'enable' )
+		msg.post( 'level2#sprite', 'enable' )
+		msg.post( 'level3#sprite', 'enable' )
+		msg.post( 'helpbtn#sprite', 'enable' )
+		msg.post( 'homebtn#sprite', 'enable' )
+		msg.post( 'logobtn#sprite', 'enable' )
+		set_player_buttons( self.num_players )
+		self.ready = true
+	end
+end
+
+function on_input(self, action_id, action)
+	local rtn = false
+	if( action_id ~= nil ) then
+		if( action_id == hash('touch') ) then
+			print( 'touch', action.pressed, action.released )
+			if( action.pressed and self.ready ) then
+				local tx = action.x
+				local ty = action.y
+
+				for i,val in ipairs(self.buttons) do
+					if( (tx>=val.x0) and (tx<=val.x1) and (ty>=val.y0) and (ty<=val.y1) ) then
+						print( 'button',i,'pressed' )
+						self.ready = false
+						msg.post( 'title#sprite', 'disable' )
+						msg.post( 'level1#sprite', 'disable' )
+						msg.post( 'level2#sprite', 'disable' )
+						msg.post( 'level3#sprite', 'disable' )
+						msg.post( 'helpbtn#sprite', 'disable' )
+						msg.post( 'homebtn#sprite', 'disable' )
+						msg.post( 'logobtn#sprite', 'disable' )
+						set_player_buttons( -1 )
+						msg.post( '/gamecontroller', 'start_game', { num_players=self.num_players, level=i } )
+						rtn = true
+					end
+				end
+
+				for i,val in ipairs(self.np_buttons) do
+					if( (tx>=val.x0) and (tx<=val.x1) and (ty>=val.y0) and (ty<=val.y1) ) then
+						print( 'num-pl button',i,'pressed' )
+						self.num_players = i
+						set_player_buttons( i )
+						rtn = true
+					end
+				end
+
+				for i,val in ipairs(self.link_buttons) do
+					if( (tx>=val.x0) and (tx<=val.x1) and (ty>=val.y0) and (ty<=val.y1) ) then
+						print( 'link button',i,'pressed' )
+						-- TODO: better ways to do this
+						if( i == 1 ) then
+							sys.open_url( "https://blue-turtle.net", {target = "_blank"} )
+						elseif( i == 2 ) then
+							sys.open_url( "https://blue-turtle.net", {target = "_blank"} )
+						elseif( i == 3 ) then
+							sys.open_url( "https://blue-turtle.net", {target = "_blank"} )
+						end
+						rtn = true
+					end
+				end
+
+			end
+		end
+	end
+	return rtn
+end
